@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UsernameForm from './components/UsernameForm'
 import ChatArea from './components/ChatArea'
 import './App.css'
@@ -11,19 +11,20 @@ function App() {
     if (stored) setUsername(stored);
   }, []);
 
-  handleLogin = (inputUsername) => {
+  const handleLogin = (inputUsername) => {
     localStorage.setItem("chatty-username", inputUsername)
     setUsername(inputUsername)
   }
 
-  handleLogOut = () => {
+  const handleLogOut = () => {
     localStorage.removeItem("chatty-username")
     setUsername('')
   };
 
   return (
     <>
-      {username ? <ChatArea /> : <UsernameForm />}
+      {username ? <ChatArea /> : <UsernameForm onSubmit={handleLogin} />}
+      <button onClick={handleLogOut}>Logout</button>
     </>
   )
 }
