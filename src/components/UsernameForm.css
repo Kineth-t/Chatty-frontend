@@ -1,0 +1,73 @@
+.background-cover {
+    background-image: url('../assets/login.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.form-container {
+    background-color: #2c2c2c;
+    text-align: center;
+    padding: 2rem;
+    color: #f5f5f5;
+    border-radius: 8px;
+    min-width: 300px;
+    margin: 60px auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.form-container h2 {
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+.username-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.username-form input {
+    padding: 12px 16px;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: none;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #444;
+    color: #f5f5f5;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.username-form input:focus {
+    background-color: #555;
+    box-shadow: 0 0 0 2px #00bcd4;
+}
+
+.username-form button {
+    padding: 12px 20px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    background-color: #00bcd4;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.username-form button:hover {
+    background-color: #0198a3;
+    transform: translateY(-1px);
+}
