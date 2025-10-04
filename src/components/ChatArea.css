@@ -1,10 +1,9 @@
 .chat-container {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 450px;
-  height: 80vh;
-  margin: 20px auto;
+  width: 100%; /* Make the width relative to the screen size (adjust this value as needed) */
+  max-width: 600px; /* Maximum width to prevent stretching too wide */
+  height: 100vh;
   border: 1px solid #ccc;
   border-radius: 8px;
   background-color: #f9f9f9;

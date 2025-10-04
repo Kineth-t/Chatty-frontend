@@ -22,10 +22,10 @@ function App() {
   };
 
   return (
-    <>
+    <div className='background-cover'>
       {username ? <ChatArea /> : <UsernameForm onSubmit={handleLogin} />}
       <button onClick={handleLogOut}>Logout</button>
-    </>
+    </div>
   )
 }
 
