@@ -7,6 +7,8 @@ export default function ChatArea({ username }) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [connected, setConnected] = useState(false);
+  const [recipient, setRecipient] = useState(''); // Who to send messages to
+  const [onlineUsers, setOnlineUsers] = useState([]);
   const stompClientRef = useRef(null);
 
   useEffect(() => {
@@ -16,12 +18,6 @@ export default function ChatArea({ username }) {
     // Cleanup on unmount
     return () => {
       if (stompClientRef.current && connected) {
-        // Send LEAVE notification before disconnecting
-        stompClientRef.current.send(
-          '/app/chat.removeUser',
-          {},
-          JSON.stringify({ sender: username, type: 'LEAVE' })
-        );
         stompClientRef.current.disconnect();
       }
     };
@@ -42,17 +38,29 @@ export default function ChatArea({ username }) {
         console.log('Connected: ' + frame);
         setConnected(true);
 
-        // Subscribe to public chat messages
-        stompClient.subscribe('/topic/public', (messageOutput) => {
+        // Subscribe to private messages for this user
+        stompClient.subscribe(`/user/${username}/queue/messages`, (messageOutput) => {
           const receivedMessage = JSON.parse(messageOutput.body);
           setMessages((prev) => [...prev, receivedMessage]);
         });
 
-        // Send JOIN notification
+        // Subscribe to broadcast
+        stompClient.subscribe('/user/public', (messageOutput) => {
+          const receivedMessage = JSON.parse(messageOutput.body);
+          setMessages((prev) => [...prev, receivedMessage]);
+        });
+
+        // Optional: Subscribe to online users list
+        stompClient.subscribe('/topic/online-users', (userList) => {
+          const users = JSON.parse(userList.body);
+          setOnlineUsers(users.filter(user => user !== username));
+        });
+
+        // Register this user as online
         stompClient.send(
-          '/app/chat.addUser',
+          '/app/user.addUser',
           {},
-          JSON.stringify({ sender: username, type: 'JOIN' })
+          JSON.stringify({ username: username, status: 'ONLINE' })
         );
       },
       (error) => {
@@ -67,20 +75,23 @@ export default function ChatArea({ username }) {
   };
 
   const handleSendMessage = () => {
-    if (message.trim() && stompClientRef.current && connected) {
+    if (message.trim() && recipient && stompClientRef.current && connected) {
       const chatMessage = {
         sender: username,
+        recipient: recipient,
         content: message,
-        type: 'CHAT'
+        timestamp: new Date().toISOString()
       };
 
-      // Send message to server
+      // Send private message to specific user
       stompClientRef.current.send(
-        '/app/chat.sendMessage',
+        '/app/chat.sendPrivateMessage',
         {},
         JSON.stringify(chatMessage)
       );
 
+      // Add message to local state (sent message)
+      setMessages((prev) => [...prev, { ...chatMessage, type: 'SENT' }]);
       setMessage('');
     }
   };
@@ -93,45 +104,80 @@ export default function ChatArea({ username }) {
 
   return (
     <div className="chat-container">
-      {/* Connection status indicator */}
-      <div className="connection-status">
-        <span className={connected ? 'connected' : 'disconnected'}>
-          {connected ? '● Connected' : '● Disconnected'}
-        </span>
+      {/* Header with connection status */}
+      <div className="chat-header">
+        <div className="connection-status">
+          <span className={connected ? 'connected' : 'disconnected'}>
+            {connected ? '● Connected' : '● Disconnected'}
+          </span>
+          <span className="username">Logged in as: {username}</span>
+        </div>
+
+        {/* Recipient Selector */}
+        <div className="recipient-selector">
+          <label>Chat with: </label>
+          <select 
+            value={recipient} 
+            onChange={(e) => setRecipient(e.target.value)}
+            disabled={!connected}
+          >
+            <option value="">Select a user...</option>
+            {onlineUsers.map((user, index) => (
+              <option key={index} value={user}>{user}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
+      {/* Messages Area */}
       <div className="chat-messages">
-        {messages.map((msg, index) => {
-          // Handle JOIN/LEAVE messages
-          if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
-            return (
-              <div key={index} className="chat-message system-message">
-                {msg.sender} {msg.type === 'JOIN' ? 'joined' : 'left'} the chat
-              </div>
-            );
-          }
-
-          // Handle regular chat messages
-          const isOwnMessage = msg.sender === username;
-          return (
-            <div key={index} className={`chat-message ${isOwnMessage ? 'sent' : 'received'}`}>
-              <span className="sender">{msg.sender}: </span>
-              {msg.content}
-            </div>
-          );
-        })}
+        {!recipient ? (
+          <div className="no-recipient">
+            <p>👋 Select a user to start chatting</p>
+          </div>
+        ) : messages.filter(msg => 
+          msg.sender === recipient || msg.recipient === recipient
+        ).length === 0 ? (
+          <div className="no-messages">
+            <p>No messages yet with {recipient}</p>
+            <p className="hint">Start the conversation!</p>
+          </div>
+        ) : (
+          messages
+            .filter(msg => msg.sender === recipient || msg.recipient === recipient)
+            .map((msg, index) => {
+              const isOwnMessage = msg.sender === username;
+              return (
+                <div key={index} className={`chat-message ${isOwnMessage ? 'sent' : 'received'}`}>
+                  <div className="message-content">
+                    <span className="sender">{isOwnMessage ? 'You' : msg.sender}: </span>
+                    {msg.content}
+                  </div>
+                  {msg.timestamp && (
+                    <span className="timestamp">
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+              );
+            })
+        )}
       </div>
 
+      {/* Input Area */}
       <div className="chat-input">
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Type your message..."
-          disabled={!connected}
+          placeholder={recipient ? `Message ${recipient}...` : "Select a user first..."}
+          disabled={!connected || !recipient}
         />
-        <button onClick={handleSendMessage} disabled={!connected || !message.trim()}>
+        <button 
+          onClick={handleSendMessage} 
+          disabled={!connected || !message.trim() || !recipient}
+        >
           Send
         </button>
       </div>
