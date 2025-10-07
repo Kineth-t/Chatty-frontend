@@ -1,32 +1,28 @@
-import { useState, useEffect } from 'react';
-import UsernameForm from './components/UsernameForm'
-import ChatArea from './components/ChatArea'
-import './App.css'
+import { useState } from 'react';
+import UsernameForm from './components/UsernameForm';
+import ChatArea from './components/ChatArea';
+import './App.css';
 
 function App() {
   const [username, setUsername] = useState('');
 
-  useEffect(() => {
-    const stored = localStorage.getItem('chatty-username');
-    if (stored) setUsername(stored);
-  }, []);
-
   const handleLogin = (inputUsername) => {
-    localStorage.setItem("chatty-username", inputUsername)
-    setUsername(inputUsername)
-  }
+    setUsername(inputUsername);
+  };
 
   const handleLogOut = () => {
-    localStorage.removeItem("chatty-username")
-    setUsername('')
+    setUsername('');
   };
 
   return (
     <div className='background-cover'>
-      {username ? <ChatArea /> : <UsernameForm onSubmit={handleLogin} />}
-      <button onClick={handleLogOut}>Logout</button>
+      {username ? (
+        <ChatArea username={username} handleLogOut={handleLogOut} />
+      ) : (
+        <UsernameForm onSubmit={handleLogin} />
+      )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
