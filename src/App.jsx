@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, LogOut, Users } from 'lucide-react';
 import SockJS from 'sockjs-client';
-import { Stomp } from 'stompjs';
+import Stomp from 'stompjs';
 import './App.css';
 
 const App = () => {
