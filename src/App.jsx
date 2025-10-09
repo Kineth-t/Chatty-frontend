@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Send, LogOut, Users } from 'lucide-react';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
@@ -17,11 +17,13 @@ const App = () => {
   const stompClient = useRef(null);
   const BASE_URL = 'http://localhost:8088';
 
+  // Connection Lifecycle
   useEffect(() => {
     if (isConnected) {
-      connectWebSocket();
-      fetchConnectedUsers();
+      connectWebSocket(); // Connects to WebSocket
+      fetchConnectedUsers(); // Fetch all users that are online
     }
+    // Clean up, disconnects WebSocket when component unmounts or user logs out
     return () => {
       if (stompClient.current && stompClient.current.connected) {
         stompClient.current.disconnect();
@@ -29,19 +31,20 @@ const App = () => {
     };
   }, [isConnected]);
 
+  // Fetch chat When a user is selected
   useEffect(() => {
     if (selectedUser) {
-      fetchChatMessages(username, selectedUser.username);
+      fetchChatMessages(username, selectedUser.username); // Fetch all chat between user and selected user
       clearNotifications(selectedUser.username);
     }
   }, [selectedUser, username]);
 
   const connectWebSocket = () => {
     try {
-      const socket = new SockJS(`${BASE_URL}/ws`);
-      const client = Stomp.over(socket);
+      const socket = new SockJS(`${BASE_URL}/ws`); // Create SockJS connection to /ws
+      const client = Stomp.over(socket); // Wrap it with STOMP for messaging
       
-      client.debug = () => {};
+      client.debug = () => {}; // disable console debug logs
       
       client.connect(
         {},
@@ -49,17 +52,20 @@ const App = () => {
           console.log('WebSocket Connected');
           stompClient.current = client;
           setConnectionError('');
-          
+
+          // Subscribes to /topic/user → receives updates when a user connects/disconnects.
           client.subscribe('/topic/user', (message) => {
             const user = JSON.parse(message.body);
             console.log('User update:', user);
-            fetchConnectedUsers();
+            fetchConnectedUsers();// Refetches user list
           });
 
+          // Subscribe to user’s private queue. Listens for incoming direct messages from other users
           client.subscribe(`/user/${username}/queue/messages`, (message) => {
             const notification = JSON.parse(message.body);
             console.log('Received message:', notification);
             
+           //  If currently chatting with that sender
             if (selectedUser && selectedUser.username === notification.sender) {
               setMessages(prev => [...prev, {
                 id: notification.id,
@@ -71,11 +77,12 @@ const App = () => {
             } else {
               setNotifications(prev => ({
                 ...prev,
-                [notification.sender]: (prev[notification.sender] || 0) + 1
+                [notification.sender]: (prev[notification.sender] || 0) + 1 // Increment their unread count in notifications
               }));
             }
           });
 
+          // Notify Server of New User
           client.send('/app/user.addUser', {}, JSON.stringify({ username, status: 'ONLINE' }));
         },
         (error) => {
@@ -91,17 +98,18 @@ const App = () => {
 
   const fetchConnectedUsers = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/users`);
+      const response = await fetch(`${BASE_URL}/users`); // GETs /users from backend
       if (!response.ok) {
         throw new Error('Failed to fetch users');
       }
       const data = await response.json();
-      setUsers(data.filter(u => u.username !== username));
+      setUsers(data.filter(u => u.username !== username)); // Removes current user from list
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
 
+  // Fetches previous messages between two users
   const fetchChatMessages = async (sender, recipient) => {
     try {
       const response = await fetch(`${BASE_URL}/messages/${sender}/${recipient}`);
@@ -116,6 +124,7 @@ const App = () => {
     }
   };
 
+  // Send message
   const sendMessage = () => {
     if (messageInput.trim() && selectedUser && stompClient.current && stompClient.current.connected) {
       const chatMessage = {
