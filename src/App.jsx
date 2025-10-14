@@ -28,6 +28,9 @@ const App = () => {
   const [messageInput, setMessageInput] = useState('');
   const [notifications, setNotifications] = useState({});
   
+  // Reference to track currently selected user
+  const selectedUserRef = useRef(null);
+
   const stompClient = useRef(null);
   const BASE_URL = 'http://localhost:8088';
 
@@ -50,6 +53,7 @@ const App = () => {
 
   useEffect(() => {
     if (selectedUser && currentUser) {
+      selectedUserRef.current = selectedUser; // Update ref
       fetchChatMessages(currentUser.username, selectedUser.username);
       clearNotifications(selectedUser.username);
     }
@@ -399,7 +403,13 @@ const App = () => {
             {users.map((user) => (
               <div
                 key={user.username}
-                onClick={() => setSelectedUser(user)}
+                onClick={() => {
+                  setSelectedUser(user);
+                  // Force refresh messages even if same user is clicked
+                  if (selectedUser?.username === user.username) {
+                    fetchChatMessages(currentUser.username, user.username);
+                  }
+                }}
                 className={`user-item ${selectedUser?.username === user.username ? 'active' : ''}`}
               >
                 <div className="user-item-content">
