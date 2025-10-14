@@ -446,3 +446,15 @@ body {
 .messages-container::-webkit-scrollbar-thumb:hover {
   background: #aaa;
 }
+
+.toggle-form span {
+  color: #667eea;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: underline;
+  transition: color 0.3s;
+}
+
+.toggle-form span:hover {
+  color: #5568d3;
+}
