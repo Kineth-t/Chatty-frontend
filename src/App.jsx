@@ -405,6 +405,7 @@ const App = () => {
                 key={user.username}
                 onClick={() => {
                   setSelectedUser(user);
+                  clearNotifications(user.username);
                   // Force refresh messages even if same user is clicked
                   if (selectedUser?.username === user.username) {
                     fetchChatMessages(currentUser.username, user.username);
