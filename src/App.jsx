@@ -1,71 +1,151 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Send, LogOut, Users } from 'lucide-react';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import './App.css';
 
 const App = () => {
-  const [username, setUsername] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showRegister, setShowRegister] = useState(false);
+  const [authError, setAuthError] = useState('');
+  
+  // Auth form fields
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
+  const [registerData, setRegisterData] = useState({
+    username: '',
+    email: '',
+    password: ''
+  });
+  
+  // User data
+  const [currentUser, setCurrentUser] = useState(null);
+  
+  // Chat state
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [notifications, setNotifications] = useState({});
-  const [connectionError, setConnectionError] = useState('');
   
   const stompClient = useRef(null);
   const BASE_URL = 'http://localhost:8088';
 
-  // Connection Lifecycle
+  // Check authentication on mount
   useEffect(() => {
-    if (isConnected) {
-      connectWebSocket(); // Connects to WebSocket
-      fetchConnectedUsers(); // Fetch all users that are online
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      connectWebSocket();
+      fetchConnectedUsers();
     }
-    // Clean up, disconnects WebSocket when component unmounts or user logs out
     return () => {
       if (stompClient.current && stompClient.current.connected) {
         stompClient.current.disconnect();
       }
     };
-  }, [isConnected]);
+  }, [isAuthenticated, currentUser]);
 
-  // Fetch chat When a user is selected
   useEffect(() => {
-    if (selectedUser) {
-      fetchChatMessages(username, selectedUser.username); // Fetch all chat between user and selected user
+    if (selectedUser && currentUser) {
+      fetchChatMessages(currentUser.username, selectedUser.username);
       clearNotifications(selectedUser.username);
     }
-  }, [selectedUser, username]);
+  }, [selectedUser, currentUser]);
+
+  const checkAuth = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/auth/me`, {
+        credentials: 'include'  // Send cookies
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser(data);
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.log('Not authenticated');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    
+    try {
+      const response = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',  // Important: Send/receive cookies
+        body: JSON.stringify(registerData)
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const data = await response.json();
+      setCurrentUser(data);
+      setIsAuthenticated(true);
+    } catch (error) {
+      setAuthError(error.message || 'Registration failed');
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    
+    try {
+      const response = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',  // Important: Send/receive cookies
+        body: JSON.stringify(loginData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Invalid credentials');
+      }
+
+      const data = await response.json();
+      setCurrentUser(data);
+      setIsAuthenticated(true);
+    } catch (error) {
+      setAuthError('Invalid username or password');
+    }
+  };
 
   const connectWebSocket = () => {
     try {
-      const socket = new SockJS(`${BASE_URL}/ws`); // Create SockJS connection to /ws
-      const client = Stomp.over(socket); // Wrap it with STOMP for messaging
+      const socket = new SockJS(`${BASE_URL}/ws`);
+      const client = Stomp.over(socket);
       
-      client.debug = () => {}; // disable console debug logs
+      client.debug = () => {};
       
+      // SockJS automatically sends cookies
       client.connect(
         {},
         () => {
           console.log('WebSocket Connected');
           stompClient.current = client;
-          setConnectionError('');
-
-          // Subscribes to /topic/user → receives updates when a user connects/disconnects.
+          
           client.subscribe('/topic/user', (message) => {
             const user = JSON.parse(message.body);
             console.log('User update:', user);
-            fetchConnectedUsers();// Refetches user list
+            fetchConnectedUsers();
           });
 
-          // Subscribe to user’s private queue. Listens for incoming direct messages from other users
-          client.subscribe(`/user/${username}/queue/messages`, (message) => {
+          client.subscribe(`/user/${currentUser.username}/queue/messages`, (message) => {
             const notification = JSON.parse(message.body);
             console.log('Received message:', notification);
             
-           //  If currently chatting with that sender
             if (selectedUser && selectedUser.username === notification.sender) {
               setMessages(prev => [...prev, {
                 id: notification.id,
@@ -77,45 +157,48 @@ const App = () => {
             } else {
               setNotifications(prev => ({
                 ...prev,
-                [notification.sender]: (prev[notification.sender] || 0) + 1 // Increment their unread count in notifications
+                [notification.sender]: (prev[notification.sender] || 0) + 1
               }));
             }
           });
 
-          // Notify Server of New User
-          client.send('/app/user.addUser', {}, JSON.stringify({ username, status: 'ONLINE' }));
+          client.send('/app/user.addUser', {}, JSON.stringify({ 
+            username: currentUser.username, 
+            status: 'ONLINE' 
+          }));
         },
         (error) => {
           console.error('WebSocket connection error:', error);
-          setConnectionError('Failed to connect to chat server. Make sure the backend is running on port 8088.');
         }
       );
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
-      setConnectionError('Error creating WebSocket connection. Please try again.');
     }
   };
 
   const fetchConnectedUsers = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/users`); // GETs /users from backend
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
+      const response = await fetch(`${BASE_URL}/users`, {
+        credentials: 'include'  // Send cookies
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch users');
+      
       const data = await response.json();
-      setUsers(data.filter(u => u.username !== username)); // Removes current user from list
+      setUsers(data.filter(u => u.username !== currentUser.username));
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
 
-  // Fetches previous messages between two users
   const fetchChatMessages = async (sender, recipient) => {
     try {
-      const response = await fetch(`${BASE_URL}/messages/${sender}/${recipient}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch messages');
-      }
+      const response = await fetch(`${BASE_URL}/messages/${sender}/${recipient}`, {
+        credentials: 'include'  // Send cookies
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      
       const data = await response.json();
       setMessages(data);
     } catch (error) {
@@ -124,11 +207,10 @@ const App = () => {
     }
   };
 
-  // Send message
   const sendMessage = () => {
     if (messageInput.trim() && selectedUser && stompClient.current && stompClient.current.connected) {
       const chatMessage = {
-        sender: username,
+        sender: currentUser.username,
         recipient: selectedUser.username,
         content: messageInput.trim(),
         timestamp: new Date().toISOString()
@@ -149,30 +231,30 @@ const App = () => {
     }
   };
 
-  const handleLogin = () => {
-    if (username.trim()) {
-      setIsConnected(true);
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (stompClient.current && stompClient.current.connected) {
       try {
-        stompClient.current.send('/app/user.disconnectUser', {}, JSON.stringify({ username }));
-        stompClient.current.disconnect(() => {
-          console.log('Disconnected from WebSocket');
-        });
+        stompClient.current.send('/app/user.disconnectUser', {}, JSON.stringify({ 
+          username: currentUser.username 
+        }));
+        stompClient.current.disconnect();
       } catch (error) {
         console.error('Error during logout:', error);
       }
     }
-    setIsConnected(false);
-    setUsername('');
+    
+    // Call logout endpoint to clear cookie
+    await fetch(`${BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    setIsAuthenticated(false);
+    setCurrentUser(null);
     setUsers([]);
     setSelectedUser(null);
     setMessages([]);
     setNotifications({});
-    setConnectionError('');
   };
 
   const clearNotifications = (user) => {
@@ -183,30 +265,110 @@ const App = () => {
     });
   };
 
-  if (!isConnected) {
+  if (isLoading) {
     return (
       <div className="login-container">
         <div className="login-box">
           <h1 className="login-title">Chatty</h1>
-          {connectionError && (
-            <div className="error-message">
-              {connectionError}
-            </div>
+          <p style={{ textAlign: 'center', color: '#666' }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="login-container">
+        <div className="login-box">
+          <h1 className="login-title">Chatty</h1>
+          
+          {authError && (
+            <div className="error-message">{authError}</div>
           )}
-          <div className="login-form">
-            <label className="login-label">Enter your username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-              className="login-input"
-              placeholder="Username"
-            />
-            <button onClick={handleLogin} className="login-button">
-              Join Chat
-            </button>
-          </div>
+          
+          {showRegister ? (
+            <form onSubmit={handleRegister} className="login-form">
+              <h2 className="form-subtitle">Create Account</h2>
+              
+              <input
+                type="text"
+                value={registerData.username}
+                onChange={(e) => setRegisterData({...registerData, username: e.target.value})}
+                className="login-input"
+                placeholder="Username"
+                required
+              />
+              
+              <input
+                type="email"
+                value={registerData.email}
+                onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
+                className="login-input"
+                placeholder="Email"
+                required
+              />
+              
+              <input
+                type="password"
+                value={registerData.password}
+                onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
+                className="login-input"
+                placeholder="Password"
+                required
+                minLength="6"
+              />
+              
+              <button type="submit" className="login-button">
+                Register
+              </button>
+              
+              <p className="toggle-form">
+                Already have an account?{' '}
+                <span onClick={() => {
+                  setShowRegister(false);
+                  setAuthError('');
+                }}>
+                  Login here
+                </span>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleLogin} className="login-form">
+              <h2 className="form-subtitle">Welcome Back</h2>
+              
+              <input
+                type="text"
+                value={loginData.username}
+                onChange={(e) => setLoginData({...loginData, username: e.target.value})}
+                className="login-input"
+                placeholder="Username"
+                required
+              />
+              
+              <input
+                type="password"
+                value={loginData.password}
+                onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                className="login-input"
+                placeholder="Password"
+                required
+              />
+              
+              <button type="submit" className="login-button">
+                Login
+              </button>
+              
+              <p className="toggle-form">
+                Don't have an account?{' '}
+                <span onClick={() => {
+                  setShowRegister(true);
+                  setAuthError('');
+                }}>
+                  Register here
+                </span>
+              </p>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -217,9 +379,9 @@ const App = () => {
       <div className="sidebar">
         <div className="sidebar-header">
           <div className="user-info">
-            <div className="avatar">{username[0].toUpperCase()}</div>
+            <div className="avatar">{currentUser.username[0].toUpperCase()}</div>
             <div>
-              <h2 className="username">{username}</h2>
+              <h2 className="username">{currentUser.username}</h2>
               <p className="status">Online</p>
             </div>
           </div>
@@ -279,7 +441,7 @@ const App = () => {
               {messages.map((msg, index) => (
                 <div
                   key={msg.id || index}
-                  className={`message ${msg.sender === username ? 'sent' : 'received'}`}
+                  className={`message ${msg.sender === currentUser.username ? 'sent' : 'received'}`}
                 >
                   <div className="message-bubble">
                     <p className="message-content">{msg.content}</p>
