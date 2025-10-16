@@ -32,7 +32,7 @@ const App = () => {
   const selectedUserRef = useRef(null);
 
   const stompClient = useRef(null);
-  const BASE_URL = 'http://localhost:8088';
+  const BASE_URL = process.env.SPRING_BOOT_BACKEND_URL;
 
   // Check authentication on mount
   useEffect(() => {
