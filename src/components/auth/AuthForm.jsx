@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default AuthForm({
+export default function AuthForm({
   showRegister,
   setShowRegister,
   onLogin,
