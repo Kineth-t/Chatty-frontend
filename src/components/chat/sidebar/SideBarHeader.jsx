@@ -1,7 +1,8 @@
 import { LogOut } from 'lucide-react';
 
 export default function SidebarHeadef({ currentUser, onLogout }) {
-  <div className="sidebar-header">
+  return 
+  (<div className="sidebar-header">
     <div className="user-info">
       <div className="avatar">{currentUser.username[0].toUpperCase()}</div>
       <div>
@@ -12,5 +13,5 @@ export default function SidebarHeadef({ currentUser, onLogout }) {
     <button onClick={onLogout} className="logout-btn" title="Logout">
       <LogOut size={20} />
     </button>
-  </div>
+  </div>)
 };
