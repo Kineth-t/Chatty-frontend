@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
-const BASE_URL = process.env.SPRING_BOOT_BACKEND_URL;
+const BASE_URL = import.meta.env.VITE_SPRING_BOOT_BACKEND_URL;
 
 export const useWebSocket = () => {
   const stompClient = useRef(null);
