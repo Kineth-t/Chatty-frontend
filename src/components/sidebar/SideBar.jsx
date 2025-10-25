@@ -1,5 +1,5 @@
-import { SidebarHeader } from './SidebarHeader';
-import { UsersList } from './UsersList';
+import SidebarHeader from './SidebarHeader';
+import UsersList from './UserList';
 
 export default function Sidebar({
     currentUser,

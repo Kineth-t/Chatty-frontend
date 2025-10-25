@@ -1,5 +1,5 @@
 import { Users } from 'lucide-react';
-import { UserItem } from './UserItem';
+import UserItem from './UserItem';
 
 export default function UsersList({
     users,

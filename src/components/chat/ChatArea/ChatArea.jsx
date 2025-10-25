@@ -1,7 +1,7 @@
-import { ChatHeader } from './ChatHeader';
-import { MessagesContainer } from './MessagesContainer';
-import { MessageInput } from './MessageInput';
-import { EmptyState } from './EmptyState';
+import ChatHeader from './ChatHeader';
+import MessagesContainer from './MessagesContainer';
+import MessageInput from './MessageInput';
+import EmptyState from './EmptyState';
 
 export default function ChatArea({
   selectedUser,

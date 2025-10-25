@@ -1,4 +1,4 @@
-const BASE_URL = process.env.SPRING_BOOT_BACKEND_URL;
+const BASE_URL = import.meta.env.VITE_SPRING_BOOT_BACKEND_URL;
 
 export const useAuth = () => {
   const checkAuth = async () => {

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { LoadingScreen } from './components/auth/LoadingScreen'
-import { AuthForm } from './components/auth/AuthForm';
-import { ChatArea } from './components/chat/ChatArea';
-import { Sidebar } from './components/sidebar/SideBar';
+import LoadingScreen from './components/auth/LoadingScreen'
+import AuthForm from './components/auth/AuthForm';
+import ChatArea from './components/chat/ChatArea/ChatArea';
+import Sidebar from './components/sidebar/SideBar';
 import { useAuth } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useChat } from './hooks/useChat';

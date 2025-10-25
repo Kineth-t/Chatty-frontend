@@ -1,4 +1,4 @@
-import { Message } from './Message';
+import Message from './Message';
 
 export default function MessagesContainer({ messages, currentUserUsername }) {
     return (
