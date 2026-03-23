@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import LoadingScreen from './components/auth/LoadingScreen'
 import AuthForm from './components/auth/AuthForm';
 import ChatArea from './components/chat/ChatArea/ChatArea';
@@ -20,11 +20,12 @@ const App = () => {
   const [messageInput, setMessageInput] = useState('');
   const [notifications, setNotifications] = useState({});
 
+  const selectedUserRef = useRef(null); // ← added
+
   const { checkAuth, handleRegister, handleLogin, handleLogout } = useAuth();
   const { connectWebSocket, disconnect, sendMessage } = useWebSocket();
   const { fetchConnectedUsers, fetchChatMessages } = useChat();
 
-  // Check authentication on mount
   useEffect(() => {
     const initAuth = async () => {
       const user = await checkAuth();
@@ -37,7 +38,6 @@ const App = () => {
     initAuth();
   }, []);
 
-  // Connect WebSocket when authenticated
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       connectWebSocket(
@@ -53,18 +53,18 @@ const App = () => {
     }
   }, [isAuthenticated, currentUser]);
 
-  // Fetch messages when user is selected
+  // ← updated: also syncs the ref
   useEffect(() => {
+    selectedUserRef.current = selectedUser;
     if (selectedUser && currentUser) {
-      fetchChatMessages(currentUser.username, selectedUser.username).then(
-        setMessages
-      );
+      fetchChatMessages(currentUser.username, selectedUser.username).then(setMessages);
       clearNotifications(selectedUser.username);
     }
   }, [selectedUser, currentUser]);
 
+  // ← updated: uses ref instead of state
   const handleNewMessage = (notification) => {
-    if (selectedUser && selectedUser.username === notification.sender) {
+    if (selectedUserRef.current && selectedUserRef.current.username === notification.sender) {
       setMessages((prev) => [
         ...prev,
         {
@@ -135,12 +135,15 @@ const App = () => {
     setCurrentUser(null);
     setUsers([]);
     setSelectedUser(null);
+    selectedUserRef.current = null; // ← added
     setMessages([]);
     setNotifications({});
   };
 
+  // ← updated: also syncs the ref
   const handleSelectUser = (user) => {
     setSelectedUser(user);
+    selectedUserRef.current = user;
     clearNotifications(user.username);
   };
 

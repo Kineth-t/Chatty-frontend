@@ -8,6 +8,10 @@ export const useWebSocket = () => {
   const stompClient = useRef(null);
 
   const connectWebSocket = (currentUser, onUserUpdate, onNewMessage) => {
+    if (stompClient.current && stompClient.current.connected) {
+      return;
+    }
+
     try {
       const socket = new SockJS(`${BASE_URL}/ws`);
       const client = Stomp.over(socket);
