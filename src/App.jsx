@@ -9,23 +9,33 @@ import { useChat } from './hooks/useChat';
 import './App.css';
 
 const App = () => {
+  // Auth & UI state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  // User & chat state
   const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  // Messages state
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
+
+  // Notification state (unread messages per user)
   const [notifications, setNotifications] = useState({});
 
-  const selectedUserRef = useRef(null); // ← added
+  // Ref to always keep latest selected user
+  const selectedUserRef = useRef(null);
 
+  //Custom hooks
   const { checkAuth, handleRegister, handleLogin, handleLogout } = useAuth();
   const { connectWebSocket, disconnect, sendMessage } = useWebSocket();
   const { fetchConnectedUsers, fetchChatMessages } = useChat();
 
+  // Check if user is already logged in
   useEffect(() => {
     const initAuth = async () => {
       const user = await checkAuth();
@@ -38,22 +48,25 @@ const App = () => {
     initAuth();
   }, []);
 
+  // Setup WebSocket when authenticated
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       connectWebSocket(
         currentUser,
-        (user) => fetchConnectedUsers(currentUser.username).then(setUsers),
-        (notification) => handleNewMessage(notification)
+        (user) => fetchConnectedUsers(currentUser.username).then(setUsers), // Update user list
+        (notification) => handleNewMessage(notification) // Handle incoming messages
       );
-      fetchConnectedUsers(currentUser.username).then(setUsers);
+      fetchConnectedUsers(currentUser.username).then(setUsers); // Fetching of users
 
       return () => {
-        disconnect(currentUser.username);
+        disconnect(currentUser.username); // Cleanup on logout
       };
     }
   }, [isAuthenticated, currentUser]);
+  // isAuthenticated ensures connection only happens after login
+  // currentUser needed because WebSocket depends on user identity, if user changes it must reconnect
 
-  // ← updated: also syncs the ref
+  // Fetch messages when selecting a user
   useEffect(() => {
     selectedUserRef.current = selectedUser;
     if (selectedUser && currentUser) {
@@ -61,9 +74,12 @@ const App = () => {
       clearNotifications(selectedUser.username);
     }
   }, [selectedUser, currentUser]);
+  // selectedUser needed because when switch chats, it must fetch new messages
+  // currentUser needed because messages depend on both users
 
-  // ← updated: uses ref instead of state
+  // Handle incoming message via WebSocket
   const handleNewMessage = (notification) => {
+    // If chatting with sender, append message
     if (selectedUserRef.current && selectedUserRef.current.username === notification.sender) {
       setMessages((prev) => [
         ...prev,
@@ -75,7 +91,9 @@ const App = () => {
           timestamp: notification.timestamp || new Date()
         }
       ]);
-    } else {
+    }
+    // else, increment notification count
+    else {
       setNotifications((prev) => ({
         ...prev,
         [notification.sender]: (prev[notification.sender] || 0) + 1
@@ -83,6 +101,7 @@ const App = () => {
     }
   };
 
+  // Handle registration
   const handleRegisterSubmit = async (registerData) => {
     setAuthError('');
     try {
@@ -94,6 +113,7 @@ const App = () => {
     }
   };
 
+  // Handle logging in
   const handleLoginSubmit = async (loginData) => {
     setAuthError('');
     try {
@@ -105,6 +125,7 @@ const App = () => {
     }
   };
 
+  // Handle send message
   const handleSendMessage = () => {
     if (messageInput.trim() && selectedUser) {
       const chatMessage = {
@@ -115,7 +136,9 @@ const App = () => {
       };
 
       try {
+        // Send via WebSocket
         sendMessage(chatMessage);
+        // Update UI
         setMessages((prev) => [
           ...prev,
           { ...chatMessage, timestamp: new Date() }
@@ -128,25 +151,29 @@ const App = () => {
     }
   };
 
+  // Handle logout
   const handleLogoutClick = async () => {
     disconnect(currentUser.username);
     await handleLogout();
+
+    // Reset all state
     setIsAuthenticated(false);
     setCurrentUser(null);
     setUsers([]);
     setSelectedUser(null);
-    selectedUserRef.current = null; // ← added
+    selectedUserRef.current = null;
     setMessages([]);
     setNotifications({});
   };
 
-  // ← updated: also syncs the ref
+  // Select user to chat with
   const handleSelectUser = (user) => {
     setSelectedUser(user);
     selectedUserRef.current = user;
-    clearNotifications(user.username);
+    clearNotifications(user.username); // Clear notifications
   };
 
+  // Clear notifications for a user
   const clearNotifications = (user) => {
     setNotifications((prev) => {
       const updated = { ...prev };

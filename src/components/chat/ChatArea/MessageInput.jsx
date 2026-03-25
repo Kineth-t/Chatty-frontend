@@ -11,7 +11,7 @@ export default function MessageInput({
             type="text"
             value={messageInput}
             onChange={onMessageChange}
-            onKeyPress={(e) => e.key === 'Enter' && onSendMessage()}
+            onKeyDown={(e) => e.key === 'Enter' && onSendMessage()}
             className="message-input"
             placeholder="Type a message..."
             />
